@@ -1,0 +1,2 @@
+- Create settings tab.
+- Read settings to connect to github using octokit.
