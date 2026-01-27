@@ -1,114 +1,117 @@
-import { Octokit } from "@octokit/core";
+import { Octokit } from '@octokit/core';
+import { TAbstractFile, TFile } from 'obsidian';
 
-interface Test {
-	foo: string;
-}
 export default class GithubConnector {
 	private github_pat: string;
 	private owner: string;
 	private repo: string;
+	private branch: string;
 	private path: string;
 	private octokit: Octokit;
-	private fooTest: Test;
 
-	constructor(github_pat: string, owner: string, repo: string, path: string) {
+	constructor(github_pat: string, owner: string, repo: string, branch: string) {
 		this.github_pat = github_pat;
 		this.owner = owner;
 		this.repo = repo;
-		this.path = path;
+		this.branch = branch;
 		this.octokit = new Octokit({
 			auth: this.github_pat,
 		});
 	}
 
-	private async getFileSha() {
+	private async getFileSha(filepath: string): Promise<string> {
 		const owner = this.owner;
 		const repo = this.repo;
-		const path = this.path;
+		const path = filepath;
 
 		const response = await this.octokit.request(
-			"GET /repos/{owner}/{repo}/contents/{path}",
-			{ owner, repo, path },
+			'GET /repos/{owner}/{repo}/contents/{path}',
+			{ owner, repo, path }
 		);
 
 		// console.log(response.data.sha);
 		return response.data.sha;
 	}
-	async getFile() {
+	async getFile(filepath: string) {
 		const res = await this.octokit.request(
-			"GET /repos/{owner}/{repo}/contents/{path}",
+			'GET /repos/{owner}/{repo}/contents/{path}',
 			{
 				owner: this.owner,
 				repo: this.repo,
-				path: this.path,
+				ref: this.branch,
+				path: filepath,
 				headers: {
-					"X-GitHub-Api-Version": "2022-11-28",
+					'X-GitHub-Api-Version': '2022-11-28',
 				},
-			},
+			}
 		);
 		return res;
 	}
 
-	async createFile() {
+	async createFile(filepath: string, content: string) {
 		const res = await this.octokit.request(
-			"PUT /repos/{owner}/{repo}/contents/{path}",
+			'PUT /repos/{owner}/{repo}/contents/{path}',
 			{
 				owner: this.owner,
 				repo: this.repo,
-				path: this.path,
-				message: "obsidian note added",
+				branch: this.branch,
+				path: this.path + '/' + filepath,
+				message: 'obsidian note added',
 				committer: {
-					name: "name here",
-					email: "email here",
+					name: 'name here',
+					email: 'email here',
 				},
-				content: "bXkgbmV3IGZpbGUgY29udGVudHM=",
+				content: content,
 				headers: {
-					"X-GitHub-Api-Version": "2022-11-28",
+					'X-GitHub-Api-Version': '2022-11-28',
 				},
-			},
+			}
 		);
 	}
 
 	async updateFile() {
 		const fileSha = await this.getFileSha();
-		console.debug("File SHA", fileSha);
+		console.debug('File SHA', fileSha);
+
 		const res = await this.octokit.request(
-			"PUT /repos/{owner}/{repo}/contents/{path}",
+			'PUT /repos/{owner}/{repo}/contents/{path}',
 			{
 				owner: this.owner,
 				repo: this.repo,
 				path: this.path,
-				message: "obsidian note updated",
+				branch: this.branch,
+
+				message: 'obsidian note updated',
 				committer: {
-					name: "name here",
-					email: "email here",
+					name: 'name here',
+					email: 'email here',
 				},
-				content: "bXkgdXBkYXRlZCBmaWxlIGNvbnRlbnRz",
+				content: 'bXkgdXBkYXRlZCBmaWxlIGNvbnRlbnRz',
 				sha: fileSha,
 				headers: {
-					"X-GitHub-Api-Version": "2022-11-28",
+					'X-GitHub-Api-Version': '2022-11-28',
 				},
-			},
+			}
 		);
 	}
 }
 
-function main() {
-	const connector = new GithubConnector(
-		"github_pat_here",
-		"SunilGurau",
-		"portfolio-website",
-		// "test.txt")
-		"test.txt",
-	);
-	connector
-		.updateFile()
-		.then((res) => {
-			// console.debug(res); // actual file info
-		})
-		.catch((err) => {
-			console.error(err);
-		});
-}
+// function main() {
+// 	const connector = new GithubConnector(
+// 		'github pat here',
+// 		'SunilGurau',
+// 		'portfolio-website',
+// 		// "test.txt")
+// 		'portfolio-site/test.txt'
+// 	);
+// 	connector
+// 		.getFileSha()
+// 		.then((res) => {
+// 			// console.debug(res); // actual file info
+// 		})
+// 		.catch((err) => {
+// 			console.error(err);
+// 		});
+// }
 
-main();
+// main();
