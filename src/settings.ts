@@ -7,6 +7,10 @@ export interface PublishPluginSettings {
 	repo: string;
 	branch: string;
 	path: string;
+	committer: {
+		name: string;
+		email: string;
+	};
 	push_on_change: boolean;
 }
 
@@ -16,6 +20,10 @@ export const DEFAULT_SETTINGS: PublishPluginSettings = {
 	repo: '',
 	branch: '',
 	path: '',
+	committer: {
+		name: '',
+		email: '',
+	},
 	push_on_change: false,
 };
 
@@ -38,9 +46,9 @@ export class PublishSettingTab extends PluginSettingTab {
 			.addText((text) =>
 				text
 					.setPlaceholder('Enter your repo name')
-					.setValue(this.plugin.settings.github_pat)
+					.setValue(this.plugin.settings.repo)
 					.onChange(async (value) => {
-						this.plugin.settings.github_pat = value;
+						this.plugin.settings.repo = value;
 						await this.plugin.saveSettings();
 					})
 			);
@@ -96,6 +104,31 @@ export class PublishSettingTab extends PluginSettingTab {
 					})
 			);
 
+		new Setting(containerEl)
+			.setName('Committer Name')
+			.setDesc('Name of the committer for GitHub commits.')
+			.addText((text) =>
+				text
+					.setPlaceholder('Enter committer name')
+					.setValue(this.plugin.settings.committer.name)
+					.onChange(async (value) => {
+						this.plugin.settings.committer.name = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName('Committer Email')
+			.setDesc('Email of the committer for GitHub commits.')
+			.addText((text) =>
+				text
+					.setPlaceholder('Enter committer email')
+					.setValue(this.plugin.settings.committer.email)
+					.onChange(async (value) => {
+						this.plugin.settings.committer.email = value;
+						await this.plugin.saveSettings();
+					})
+			);
 		new Setting(containerEl)
 			.setName('Push on change')
 			.setDesc('Automatically push changes to GitHub when a file is modified.')

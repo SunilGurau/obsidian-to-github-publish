@@ -9,29 +9,36 @@ export default class GithubConnector {
 	private path: string;
 	private octokit: Octokit;
 
-	constructor(github_pat: string, owner: string, repo: string, branch: string) {
+	constructor(
+		github_pat: string,
+		owner: string,
+		repo: string,
+		branch: string,
+		path: string = ''
+	) {
 		this.github_pat = github_pat;
 		this.owner = owner;
 		this.repo = repo;
 		this.branch = branch;
+		this.path = path;
 		this.octokit = new Octokit({
 			auth: this.github_pat,
 		});
 	}
 
-	private async getFileSha(filepath: string): Promise<string> {
-		const owner = this.owner;
-		const repo = this.repo;
-		const path = filepath;
+	// private async getFileSha(filepath: string): Promise<string> {
+	// 	const owner = this.owner;
+	// 	const repo = this.repo;
+	// 	const path = filepath;
 
-		const response = await this.octokit.request(
-			'GET /repos/{owner}/{repo}/contents/{path}',
-			{ owner, repo, path }
-		);
+	// 	const response = await this.octokit.request(
+	// 		'GET /repos/{owner}/{repo}/contents/{path}',
+	// 		{ owner, repo, path }
+	// 	);
 
-		// console.log(response.data.sha);
-		return response.data.sha;
-	}
+	// 	// console.log(response.data.sha);
+	// 	return response.data.sha;
+	// }
 	async getFile(filepath: string) {
 		const res = await this.octokit.request(
 			'GET /repos/{owner}/{repo}/contents/{path}',
@@ -39,7 +46,7 @@ export default class GithubConnector {
 				owner: this.owner,
 				repo: this.repo,
 				ref: this.branch,
-				path: filepath,
+				path: this.path + '/' + filepath,
 				headers: {
 					'X-GitHub-Api-Version': '2022-11-28',
 				},
@@ -48,7 +55,11 @@ export default class GithubConnector {
 		return res;
 	}
 
-	async createFile(filepath: string, content: string) {
+	async createFile(
+		filepath: string,
+		content: string,
+		committer: { name: string; email: string }
+	) {
 		const res = await this.octokit.request(
 			'PUT /repos/{owner}/{repo}/contents/{path}',
 			{
@@ -58,8 +69,8 @@ export default class GithubConnector {
 				path: this.path + '/' + filepath,
 				message: 'obsidian note added',
 				committer: {
-					name: 'name here',
-					email: 'email here',
+					name: committer.name,
+					email: committer.email,
 				},
 				content: content,
 				headers: {
@@ -69,25 +80,27 @@ export default class GithubConnector {
 		);
 	}
 
-	async updateFile() {
-		const fileSha = await this.getFileSha();
-		console.debug('File SHA', fileSha);
-
+	async updateFile(
+		filepath: string,
+		content: string,
+		committer: { name: string; email: string },
+		sha: string
+	) {
 		const res = await this.octokit.request(
 			'PUT /repos/{owner}/{repo}/contents/{path}',
 			{
 				owner: this.owner,
 				repo: this.repo,
-				path: this.path,
+				path: this.path + '/' + filepath,
 				branch: this.branch,
 
 				message: 'obsidian note updated',
 				committer: {
-					name: 'name here',
-					email: 'email here',
+					name: committer.name,
+					email: committer.email,
 				},
-				content: 'bXkgdXBkYXRlZCBmaWxlIGNvbnRlbnRz',
-				sha: fileSha,
+				content: content,
+				sha: sha,
 				headers: {
 					'X-GitHub-Api-Version': '2022-11-28',
 				},

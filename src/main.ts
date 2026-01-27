@@ -18,7 +18,8 @@ export default class PublishPlugin extends Plugin {
 			this.settings.github_pat,
 			this.settings.owner,
 			this.settings.repo,
-			this.settings.branch
+			this.settings.branch,
+			this.settings.path
 		);
 	}
 	private onModifyHandler = async (file: TAbstractFile) => {
@@ -46,24 +47,66 @@ export default class PublishPlugin extends Plugin {
 		// console.log('Pushing because push_on_change is enabled');
 		// console.log('File Content:', await this.app.vault.read(file));
 		let fileContent: string;
+
 		try {
 			fileContent = await this.app.vault.read(file);
-			console.log('File Content:', fileContent);
 		} catch {
 			console.error('Error reading file content');
 			return;
 		}
 		console.log('Encoding content to base64');
-		fileContent = await this.app.vault.read(file);
 		const encodedContent = Buffer.from(fileContent).toString('base64');
 		console.log('Encoded Content:', encodedContent);
 
+		let response;
 		try {
-			await this.githubConnector.createFile(file.path, encodedContent);
-			console.log(`File ${file.path} pushed to GitHub successfully.`);
+			response = await this.githubConnector.getFile(file.path);
+			console.log('File exists on GitHub.');
+			let sha = response.data.sha;
+			console.log('File SHA:', sha);
+			try {
+				await this.githubConnector.updateFile(
+					file.path,
+					encodedContent,
+					{
+						name: this.settings.committer.name,
+						email: this.settings.committer.email,
+					},
+					sha
+				);
+				console.log(`File ${file.path} updated on GitHub successfully.`);
+			} catch (error) {
+				console.error('Error updating file:', error);
+			}
 		} catch (error) {
-			console.error('Error creating file:', error);
+			if (error.response.status === 404) {
+				console.log('File does not exist on GitHub. Creating new file.');
+				try {
+					await this.githubConnector.createFile(file.path, encodedContent, {
+						name: this.settings.committer.name,
+						email: this.settings.committer.email,
+					});
+					console.log(`File ${file.path} pushed to GitHub successfully.`);
+				} catch (error) {
+					console.error('Error creating file:', error);
+				}
+			} else {
+				console.error(
+					'Error fetching file from GitHub:',
+					error.response.data.message
+				);
+			}
 		}
+
+		// try {
+		// 	await this.githubConnector.createFile(file.path, encodedContent, {
+		// 		name: this.settings.committer.name,
+		// 		email: this.settings.committer.email,
+		// 	});
+		// 	console.log(`File ${file.path} pushed to GitHub successfully.`);
+		// } catch (error) {
+		// 	console.error('Error creating file:', error);
+		// }
 	};
 
 	async onload() {
@@ -74,9 +117,8 @@ export default class PublishPlugin extends Plugin {
 		this.addSettingTab(new PublishSettingTab(this.app, this));
 
 		this.registerEvent(
-			this.app.vault.on('modify', debounce(this.onModifyHandler, 10000, true))
+			this.app.vault.on('modify', debounce(this.onModifyHandler, 6000, true))
 		);
-
 		this.addCommand({
 			id: 'my-plugin-do-something',
 			name: 'Do something cool',
