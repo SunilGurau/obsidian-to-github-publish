@@ -1,5 +1,4 @@
 import { Octokit } from '@octokit/core';
-import { TAbstractFile, TFile } from 'obsidian';
 
 export default class GithubConnector {
 	private github_pat: string;
@@ -66,7 +65,7 @@ export default class GithubConnector {
 				owner: this.owner,
 				repo: this.repo,
 				branch: this.branch,
-				path: this.path + '/' + filepath,
+				path: this.path ? this.path + '/' + filepath : filepath,
 				message: 'obsidian note added',
 				committer: {
 					name: committer.name,
@@ -91,7 +90,7 @@ export default class GithubConnector {
 			{
 				owner: this.owner,
 				repo: this.repo,
-				path: this.path + '/' + filepath,
+				path: this.path ? this.path + '/' + filepath : filepath,
 				branch: this.branch,
 
 				message: 'obsidian note updated',
@@ -111,16 +110,16 @@ export default class GithubConnector {
 
 // function main() {
 // 	const connector = new GithubConnector(
-// 		'github pat here',
+// 		'github_pat_here',
 // 		'SunilGurau',
 // 		'portfolio-website',
-// 		// "test.txt")
-// 		'portfolio-site/test.txt'
+// 		'main',
+// 		''
 // 	);
 // 	connector
-// 		.getFileSha()
-// 		.then((res) => {
-// 			// console.debug(res); // actual file info
+// 		.createFile('test1.txt', 'bXkgbmV3IGZpbGUgY29udGVudHM=', {
+// 			name: 'Sunil Gurau',
+// 			email: 'sunil.gurau@example.com',
 // 		})
 // 		.catch((err) => {
 // 			console.error(err);

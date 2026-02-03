@@ -12,6 +12,9 @@ export interface PublishPluginSettings {
 		email: string;
 	};
 	push_on_change: boolean;
+	tag_to_publish: string;
+	embeds_included?: boolean;
+	recursive_publish: boolean;
 }
 
 export const DEFAULT_SETTINGS: PublishPluginSettings = {
@@ -25,6 +28,9 @@ export const DEFAULT_SETTINGS: PublishPluginSettings = {
 		email: '',
 	},
 	push_on_change: false,
+	tag_to_publish: '',
+	embeds_included: false,
+	recursive_publish: false,
 };
 
 export class PublishSettingTab extends PluginSettingTab {
@@ -105,7 +111,7 @@ export class PublishSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Committer Name')
+			.setName('Committer name')
 			.setDesc('Name of the committer for GitHub commits.')
 			.addText((text) =>
 				text
@@ -118,7 +124,7 @@ export class PublishSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Committer Email')
+			.setName('Committer email')
 			.setDesc('Email of the committer for GitHub commits.')
 			.addText((text) =>
 				text
@@ -139,6 +145,49 @@ export class PublishSettingTab extends PluginSettingTab {
 						this.plugin.settings.push_on_change = value;
 						await this.plugin.saveSettings();
 						this.display();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName('Tag to publish')
+			.setDesc(
+				'Only publish files that contain this tag in their frontmatter. Leave empty to publish all files.'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('Enter tag to publish')
+					.setValue(this.plugin.settings.tag_to_publish)
+					.onChange(async (value) => {
+						this.plugin.settings.tag_to_publish = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName('Include embeds')
+			.setDesc(
+				'If enabled, embedded files will also be included in the publish.'
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.embeds_included ?? false)
+					.onChange(async (value) => {
+						this.plugin.settings.embeds_included = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName('Recursive publish')
+			.setDesc(
+				'If enabled, the outward linked files will also be published recursively.'
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.recursive_publish)
+					.onChange(async (value) => {
+						this.plugin.settings.recursive_publish = value;
+						await this.plugin.saveSettings();
 					})
 			);
 	}
