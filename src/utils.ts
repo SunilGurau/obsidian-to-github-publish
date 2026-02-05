@@ -34,9 +34,26 @@ export function getOutgoingLinks(file: TFile, app: App): TFile[] {
 }
 
 //returns the base64 encoded content of a given TFile
+// export async function base64EncodeFile(file: TFile, app: App): Promise<string> {
+// 	console.log(`Encoding file to base64: ${file.path}`);
+// 	const buffer = await app.vault.readBinary(file);
+// 	return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+// }
+
+//chunked version to handle large files
 export async function base64EncodeFile(file: TFile, app: App): Promise<string> {
+	console.log(`Encoding file to base64: ${file.path}`);
 	const buffer = await app.vault.readBinary(file);
-	return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+	const bytes = new Uint8Array(buffer);
+
+	const chunkSize = 0x8000; // 32 KB
+	let binary = '';
+
+	for (let i = 0; i < bytes.length; i += chunkSize) {
+		binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+	}
+
+	return btoa(binary);
 }
 
 export function areSameBase64Contents(
@@ -45,8 +62,6 @@ export function areSameBase64Contents(
 ): boolean {
 	const normalized1 = content1.replace(/\s+/g, '');
 	const normalized2 = content2.replace(/\s+/g, '');
-	console.log('Normalized Content 1:', normalized1);
-	console.log('Normalized Content 2:', normalized2);
 	return normalized1 === normalized2;
 }
 

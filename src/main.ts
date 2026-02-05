@@ -6,6 +6,7 @@ import {
 	PublishSettingTab,
 } from './settings';
 
+import { ReturnTypeOf } from '@octokit/core/dist-types/types';
 import { RequestError } from '@octokit/request-error';
 import {
 	areSameBase64Contents,
@@ -175,6 +176,7 @@ export default class PublishPlugin extends Plugin {
 				const embeddedFiles = getEmbeddedFiles(file, this.app);
 				// Optional: reverse to preserve same order as recursive DFS
 
+				console.log('Embedded files to process:', embeddedFiles);
 				for (let i = embeddedFiles.length - 1; i >= 0; i--) {
 					const embeddedFile = embeddedFiles[i];
 					if (embeddedFile === undefined) continue; //satisfy TypeScript
@@ -202,26 +204,83 @@ export default class PublishPlugin extends Plugin {
 			}
 		}
 	};
-	private uploadTimeout: NodeJS.Timeout | null = null;
-	private uploading = false;
+	// private debounceTimeout: ReturnType<typeof setTimeout> | null = null;
+	// private delayTimeout: ReturnType<typeof setTimeout> | null = null;
+	// private uploading = false;
 
-	private async scheduleUpload(file: TFile, delay: number) {
-		console.log(
-			`Scheduling upload for file: ${file.path} with delay: ${delay}ms`
-		);
-		if (this.uploadTimeout) clearTimeout(this.uploadTimeout);
-		this.uploadTimeout = setTimeout(async () => {
-			console.log(`Executing scheduled upload for file: ${file.path}`);
-			if (this.uploading) return;
+	// //debounce the upload to avoid multiple uploads when multiple changes are made in a short period of time
+	// private async scheduleUpload(
+	// 	file: TFile,
+	// 	delay: number,
+	// 	debounceInterval: number
+	// ) {
+	//   let debounceTimeoutExpired = false;
+	//   let delayTimeoutExpired = false;
+	// 	if (this.debounceTimeout) {
+	// 		new Notice('Upload already scheduled, resetting timer.');
+	// 		debounceTimeoutExpired = true;
+	// 		clearTimeout(this.debounceTimeout); //cancel the pending upload
+	// 	}
+	// 	this.delayTimeout = setTimeout(() => {
+	// 		this.delayTimeout = null;
+	// 		this.debounceTimeout = setTimeout(
+	// 			() => {
+	// 				void this.onModifyHandler(file);
+	// 				this.debounceTimeout = null;
+	// 			},
+	// 			this.debounceTimeout ? Math.max(debounceInterval-delay, 0) : 0
+	// 		);
+	// 	}, delay);
+	// }
 
-			this.uploading = true;
-			try {
-				await this.onModifyHandler(file);
-			} finally {
-				this.uploading = false;
-				this.uploadTimeout = null;
+	private async debounce(cb: (file: TFile) => Promise<void>, timeout: number) {
+		let buttonTimeoutExpired = true;
+		let modifyTimeoutExpired = true;
+
+		let start: number | undefined;
+		let elapsed: number;
+		let modifyTimer: ReturnTypeOf<typeof setTimeout>;
+		let buttonCallback = (file: TFile) => {
+			if (buttonTimeoutExpired) {
+				if (!modifyTimeoutExpired) {
+					clearTimeout(modifyTimer);
+					//mark it true so that the function handles other modification in the future
+					modifyTimeoutExpired = true;
+				}
+				start = Date.now();
+				//mark it false so that push button does not work before 'timeout' duration
+				buttonTimeoutExpired = false;
+				setTimeout(() => {
+					void cb(file);
+					//mark it true so that the button push works again after 'timeout' duration
+					buttonTimeoutExpired = true;
+				}, timeout);
 			}
-		}, delay);
+			//when the timeout has not expired, deny the action and do not reset the current timeout
+			if (!buttonTimeoutExpired) {
+				if (start !== undefined) {
+					elapsed = Date.now() - start;
+				}
+				const waitFor = (timeout - elapsed) / 1000;
+				new Notice(
+					`Upload already scheduled, wait for ${Math.ceil(waitFor)}s before you can upload again.`
+				);
+				return;
+			}
+		};
+		let modifyCallback = (file: TFile) => {
+			if (!modifyTimeoutExpired) {
+				clearTimeout(modifyTimer);
+			}
+			//mark it false so that the modification before the timeout expires cause renewal of the timer
+			//so that a new timer is set
+			modifyTimeoutExpired = false;
+			modifyTimer = setTimeout(() => {
+				void cb(file);
+				//mark it true so that the function handles other modification in the future
+				modifyTimeoutExpired = true;
+			}, timeout);
+		};
 	}
 
 	async onload() {
@@ -232,8 +291,8 @@ export default class PublishPlugin extends Plugin {
 		this.addSettingTab(new PublishSettingTab(this.app, this));
 		const debouncedPushHandler = debounce(this.onModifyHandler, 6000, true);
 		this.registerEvent(
-			this.app.vault.on('modify', async (file: TFile) => {
-				await this.scheduleUpload(file, 6000);
+			this.app.vault.on('modify', (file: TFile) => {
+				debounce(this.onModifyHandler, 6000, true)(file);
 			})
 		);
 		//add push button to the ribbon
