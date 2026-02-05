@@ -1,4 +1,4 @@
-import { debounce, Notice, Plugin, TFile } from 'obsidian';
+import { Notice, Plugin, TFile } from 'obsidian';
 import GithubConnector from './githubClient';
 import {
 	DEFAULT_SETTINGS,
@@ -53,7 +53,7 @@ export default class PublishPlugin extends Plugin {
 				);
 				new Notice(`File ${filePath} updated on GitHub successfully.`);
 			} catch (error) {
-				console.log(`Error updating file ${filePath} on GitHub:`, error);
+				// console.log(`Error updating file ${filePath} on GitHub:`, error);
 				new Notice(`Error updating file ${filePath} on GitHub`);
 				throw error;
 			}
@@ -92,7 +92,7 @@ export default class PublishPlugin extends Plugin {
 
 			//skip if the file has no "publish" tag in frontmatter
 			const tags = getFrontmatterTags(file, this.app);
-			console.log(`Frontmatter tags for file ${file.path}:`, tags);
+			// console.log(`Frontmatter tags for file ${file.path}:`, tags);
 
 			//if tag_to_publish is set, only push files that have that tag
 			//if tag_to_publish is not set, push all modified files
@@ -100,9 +100,9 @@ export default class PublishPlugin extends Plugin {
 				this.settings.tag_to_publish &&
 				!tags.includes(this.settings.tag_to_publish)
 			) {
-				console.log(
-					`File ${file.path} has no '${this.settings.tag_to_publish}' tag. Cannot push changes.`
-				);
+				// console.log(
+				// 	`File ${file.path} has no '${this.settings.tag_to_publish}' tag. Cannot push changes.`
+				// );
 				new Notice(
 					`File ${file.path} has no '${this.settings.tag_to_publish}' tag. Cannot push changes.`
 				);
@@ -127,12 +127,13 @@ export default class PublishPlugin extends Plugin {
 			try {
 				response = await this.githubConnector.getFile(file.path);
 				if ('content' in response.data) {
-					console.log('Response:', response.data.content.trim());
-					console.log('Encoded Content:', encodedContent.trim());
-					console.log(
-						'Are equal:',
-						areSameBase64Contents(response.data.content, encodedContent)
-					);
+					// console.log('Response:', response.data.content.trim());
+					// console.log('Encoded Content:', encodedContent.trim());
+					// console.log(
+					// 	'Are equal:',
+					// 	areSameBase64Contents(response.data.content, encodedContent)
+					// );
+
 					//dont push a note if it hasnt changed
 					//consequently, the notes associated with it will also not be pushed
 					//at least not directly because of this note
@@ -140,7 +141,7 @@ export default class PublishPlugin extends Plugin {
 						// No changes detected
 						new Notice(`No changes detected for file ${file.path}.`);
 						// continue;
-						return;
+						return 'no change';
 					}
 				}
 
@@ -155,12 +156,12 @@ export default class PublishPlugin extends Plugin {
 					if (error.response?.status === 404) {
 						pushMode = 'create';
 					} else {
-						console.log('Unauthorized access or other error');
+						// console.log('Unauthorized access or other error');
 						new Notice('Unauthorized access or other error');
 						return;
 					}
 				} else {
-					console.log('Network error while accessing GitHub');
+					// console.log('Network error while accessing GitHub');
 					new Notice('Network error while accessing GitHub');
 					return;
 				}
@@ -168,6 +169,7 @@ export default class PublishPlugin extends Plugin {
 			try {
 				await this.pushFileToGitHub(file.path, encodedContent, pushMode, sha);
 			} catch {
+				// console.log('Error caught');
 				return; //stop processing further if there was an error pushing the main file
 			}
 			//should i wrap this in pushMode === 'update'? conditional
@@ -176,11 +178,11 @@ export default class PublishPlugin extends Plugin {
 				const embeddedFiles = getEmbeddedFiles(file, this.app);
 				// Optional: reverse to preserve same order as recursive DFS
 
-				console.log('Embedded files to process:', embeddedFiles);
+				// console.log('Embedded files to process:', embeddedFiles);
 				for (let i = embeddedFiles.length - 1; i >= 0; i--) {
 					const embeddedFile = embeddedFiles[i];
 					if (embeddedFile === undefined) continue; //satisfy TypeScript
-					console.log('Processing embedded file:', embeddedFile.path);
+					// console.log('Processing embedded file:', embeddedFile.path);
 					//skip if the
 					await this.pushFileToGitHub(
 						embeddedFile.path,
@@ -233,15 +235,20 @@ export default class PublishPlugin extends Plugin {
 	// 	}, delay);
 	// }
 
-	private async debounce(cb: (file: TFile) => Promise<void>, timeout: number) {
+	private debounce(
+		cb: (file: TFile) => Promise<string | void>,
+		timeout: number
+	) {
 		let buttonTimeoutExpired = true;
 		let modifyTimeoutExpired = true;
 
 		let start: number | undefined;
 		let elapsed: number;
 		let modifyTimer: ReturnTypeOf<typeof setTimeout>;
-		let buttonCallback = (file: TFile) => {
+		let buttonCallback = async (file: TFile) => {
+			console.log('buttonTimeoutExpired', buttonTimeoutExpired);
 			if (buttonTimeoutExpired) {
+				console.log('Button Timeout expired is true');
 				if (!modifyTimeoutExpired) {
 					clearTimeout(modifyTimer);
 					//mark it true so that the function handles other modification in the future
@@ -250,14 +257,19 @@ export default class PublishPlugin extends Plugin {
 				start = Date.now();
 				//mark it false so that push button does not work before 'timeout' duration
 				buttonTimeoutExpired = false;
+				//run the function right after the button is pushed, not after timeout
+				if ((await cb(file)) === 'no change') {
+					buttonTimeoutExpired = true;
+					return;
+				}
+				elapsed = Date.now() - start;
 				setTimeout(() => {
-					void cb(file);
 					//mark it true so that the button push works again after 'timeout' duration
 					buttonTimeoutExpired = true;
-				}, timeout);
+				}, timeout - elapsed); //account for the time spent in running the callback function
 			}
 			//when the timeout has not expired, deny the action and do not reset the current timeout
-			if (!buttonTimeoutExpired) {
+			else if (!buttonTimeoutExpired) {
 				if (start !== undefined) {
 					elapsed = Date.now() - start;
 				}
@@ -281,6 +293,7 @@ export default class PublishPlugin extends Plugin {
 				modifyTimeoutExpired = true;
 			}, timeout);
 		};
+		return { buttonCallback, modifyCallback };
 	}
 
 	async onload() {
@@ -289,17 +302,22 @@ export default class PublishPlugin extends Plugin {
 		this.initializeGithubConnector();
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new PublishSettingTab(this.app, this));
-		const debouncedPushHandler = debounce(this.onModifyHandler, 6000, true);
+
+		const { buttonCallback, modifyCallback } = this.debounce(
+			this.onModifyHandler,
+			60000
+		);
+
 		this.registerEvent(
 			this.app.vault.on('modify', (file: TFile) => {
-				debounce(this.onModifyHandler, 6000, true)(file);
+				modifyCallback(file);
 			})
 		);
 		//add push button to the ribbon
 		this.addRibbonIcon('upload', 'Push to GitHub', async () => {
 			const activeFile = this.app.workspace.getActiveFile();
 			if (activeFile) {
-				await this.scheduleUpload(activeFile, 0);
+				await buttonCallback(activeFile);
 			} else {
 				new Notice('No active file to push.');
 			}

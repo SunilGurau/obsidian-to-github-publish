@@ -42,7 +42,7 @@ export function getOutgoingLinks(file: TFile, app: App): TFile[] {
 
 //chunked version to handle large files
 export async function base64EncodeFile(file: TFile, app: App): Promise<string> {
-	console.log(`Encoding file to base64: ${file.path}`);
+	// console.log(`Encoding file to base64: ${file.path}`);
 	const buffer = await app.vault.readBinary(file);
 	const bytes = new Uint8Array(buffer);
 
