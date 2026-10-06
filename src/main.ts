@@ -41,6 +41,10 @@ export default class PublishPlugin extends Plugin {
 		sha: string | undefined = undefined
 	) => {
 		if (pushMode === 'update') {
+			if (sha === undefined) {
+				new Notice(`Cannot update file ${filePath} without a GitHub SHA.`);
+				return;
+			}
 			try {
 				await this.githubConnector.updateFile(
 					filePath,
@@ -205,6 +209,7 @@ export default class PublishPlugin extends Plugin {
 				}
 			}
 		}
+		return;
 	};
 	// private debounceTimeout: ReturnType<typeof setTimeout> | null = null;
 	// private delayTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -249,6 +254,7 @@ export default class PublishPlugin extends Plugin {
 			console.log('buttonTimeoutExpired', buttonTimeoutExpired);
 			if (buttonTimeoutExpired) {
 				console.log('Button Timeout expired is true');
+				//pushing after modification before the debouncing timeout expiry resets it
 				if (!modifyTimeoutExpired) {
 					clearTimeout(modifyTimer);
 					//mark it true so that the function handles other modification in the future
