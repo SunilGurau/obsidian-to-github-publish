@@ -81,7 +81,6 @@ export default class PublishPlugin extends Plugin {
 
 	private onModifyHandler = async (file: TFile) => {
 		if (!this.settings.push_on_change) return;
-		console.log(`currently modifying file: ${file.path}`);
 
 		const visited = new Set<string>();
 		const stack: TFile[] = [file];
@@ -251,9 +250,7 @@ export default class PublishPlugin extends Plugin {
 		let elapsed: number;
 		let modifyTimer: ReturnTypeOf<typeof setTimeout>;
 		let buttonCallback = async (file: TFile) => {
-			console.log('buttonTimeoutExpired', buttonTimeoutExpired);
 			if (buttonTimeoutExpired) {
-				console.log('Button Timeout expired is true');
 				//pushing after modification before the debouncing timeout expiry resets it
 				if (!modifyTimeoutExpired) {
 					clearTimeout(modifyTimer);

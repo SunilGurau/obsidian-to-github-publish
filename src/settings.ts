@@ -102,7 +102,7 @@ export class PublishSettingTab extends PluginSettingTab {
 			.setDesc('Personal access token with write access to the repository.')
 			.addText((text) =>
 				text
-					.setPlaceholder('Enter your PAT')
+					.setPlaceholder('Enter your personal access token')
 					.setValue(this.plugin.settings.github_pat)
 					.onChange(async (value) => {
 						this.plugin.settings.github_pat = value;

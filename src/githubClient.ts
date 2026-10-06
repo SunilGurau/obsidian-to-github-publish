@@ -39,7 +39,7 @@ export default class GithubConnector {
 	// 	return response.data.sha;
 	// }
 	async getFile(filepath: string) {
-		const res = await this.octokit.request(
+		return await this.octokit.request(
 			'GET /repos/{owner}/{repo}/contents/{path}',
 			{
 				owner: this.owner,
@@ -51,7 +51,6 @@ export default class GithubConnector {
 				},
 			}
 		);
-		return res;
 	}
 
 	async createFile(
@@ -59,7 +58,7 @@ export default class GithubConnector {
 		content: string,
 		committer: { name: string; email: string }
 	) {
-		const res = await this.octokit.request(
+		await this.octokit.request(
 			'PUT /repos/{owner}/{repo}/contents/{path}',
 			{
 				owner: this.owner,
@@ -85,7 +84,7 @@ export default class GithubConnector {
 		committer: { name: string; email: string },
 		sha: string
 	) {
-		const res = await this.octokit.request(
+		await this.octokit.request(
 			'PUT /repos/{owner}/{repo}/contents/{path}',
 			{
 				owner: this.owner,
